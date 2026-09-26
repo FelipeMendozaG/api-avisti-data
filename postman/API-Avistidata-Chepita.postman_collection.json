@@ -1,0 +1,1358 @@
+{
+  "info": {
+    "_postman_id": "a71c4f0d-avistidata-chepita-v1",
+    "name": "API Avistidata Chepita - v1",
+    "description": "# API Avistidata Chepita (v1)\n\nBase URL por defecto: `http://localhost:8000` (variable `{{base_url}}`).\n\n## Formato de respuesta estandar\n\n- Exito: `{\"success\": true, \"message\": \"...\", \"data\": ...}`\n- Error: `{\"success\": false, \"message\": \"...\", \"errors\": ...}`\n\n## Autenticacion\n\nLos endpoints de consulta (GET) exigen `Authorization: Bearer <token>`.\nEjecutar primero `1. Autenticacion > Login (publico)`: guarda el token en la variable de coleccion `{{token}}` y el resto de peticiones protegidas lo heredan.\n\n- Token: 64 caracteres hexadecimales, vigencia `AUTH_TOKEN_TTL_HOURS` (24 h por defecto).\n- Sin header, con esquema distinto de Bearer, con token inexistente o expirado: **401 Unauthorized** `{\"success\": false, \"message\": \"Token invalido o expirado\", ...}`.\n- Los endpoints de importacion (`/import/excel/`, `/import/csv/`, `/import/json/`) siguen siendo **publicos** y conservan su contrato original.\n\n## Orden recomendado\n\n1. Autenticacion (login) -> 2. Catalogo / 4. Consultas de importacion -> 3. Importacion (opcional) -> Logout.\n\n## Paginacion\n\n`GET /products/`, `GET /equipments/` y `GET /import/data-loads/` estan paginados (el endpoint de logs sigue devolviendo todo).\n\nQuery params:\n\n- `page` (entero >= 1, default 1): numero de pagina.\n- `page_size` (entero entre 1 y `PAGINATION_MAX_PAGE_SIZE`, default `PAGINATION_DEFAULT_PAGE_SIZE` = 20).\n\nLa respuesta mantiene el sobre estandar y anade un objeto `pagination`:\n\n```json\n{\n  \"success\": true,\n  \"message\": \"Productos consultados correctamente\",\n  \"data\": [ ...registros de la pagina... ],\n  \"pagination\": {\n    \"count\": 8691, \"page\": 1, \"page_size\": 20, \"total_pages\": 435,\n    \"next\": \"http://localhost:8000/api/v1/products/?page=2&page_size=20\",\n    \"previous\": null, \"has_next\": true, \"has_previous\": false\n  }\n}\n```\n\n- `count` es el total **filtrado** (por ejemplo, con `?search=HP` el count es 2022).\n- `next` / `previous` son enlaces absolutos que conservan los filtros de la peticion.\n- `page` no numerico, `page` < 1 o `page_size` mayor al maximo: **400** `{\"success\": false, \"message\": \"Parametros de consulta invalidos\", \"errors\": {\"page\": \"invalid\"}}`.\n- `page` mayor que `total_pages`: **404** `{\"success\": false, \"message\": \"Pagina fuera de rango\", \"errors\": {\"page\": \"out_of_range\"}}`.\n\n## Importar en Bruno\n\nBruno: `Import Collection > Postman Collection` y seleccionar este archivo JSON (formato Collection v2.1).\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Valores por defecto para que la coleccion funcione recien importada.",
+          "if (!pm.collectionVariables.get('base_url')) {",
+          "    pm.collectionVariables.set('base_url', 'http://localhost:8000');",
+          "}",
+          "if (!pm.collectionVariables.get('admin_email')) {",
+          "    pm.collectionVariables.set('admin_email', 'admin@avisti.com');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Host + puerto del API (sin slash final). runserver usa http://localhost:8000"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Token Bearer vigente. Se llena automaticamente al ejecutar POST /api/v1/auth/login/ y se limpia al hacer logout."
+    },
+    {
+      "key": "expires_at",
+      "value": "",
+      "type": "string",
+      "description": "Fecha/hora ISO-8601 de expiracion del token devuelta por el login (informativa)."
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@avisti.com",
+      "type": "string",
+      "description": "Email del administrador. Debe existir en la tabla admins (usar: python manage.py create_admin)."
+    },
+    {
+      "key": "admin_password",
+      "value": "Clave.Segura#2026",
+      "type": "string",
+      "description": "Contrasena en texto plano solo para la peticion de login; el API la valida con check_password contra el hash almacenado."
+    },
+    {
+      "key": "invalid_token",
+      "value": "0000000000000000000000000000000000000000000000000000000000000000",
+      "type": "string",
+      "description": "Token inexistente (64 caracteres) usado en las pruebas de 401."
+    },
+    {
+      "key": "search",
+      "value": "HP",
+      "type": "string",
+      "description": "Texto del filtro ?search= en GET /api/v1/products/ (busca en product_code, name y description con icontains)."
+    },
+    {
+      "key": "page",
+      "value": "1",
+      "type": "string",
+      "description": "Numero de pagina (entero >= 1) para /products/, /equipments/ y /import/data-loads/."
+    },
+    {
+      "key": "page_size",
+      "value": "20",
+      "type": "string",
+      "description": "Registros por pagina (1..PAGINATION_MAX_PAGE_SIZE = 100; default PAGINATION_DEFAULT_PAGE_SIZE = 20)."
+    },
+    {
+      "key": "product_id",
+      "value": "1",
+      "type": "string",
+      "description": "Filtro ?product_id= en GET /api/v1/equipments/ (entero; si no es numerico el API responde 400)."
+    },
+    {
+      "key": "load_id",
+      "value": "1",
+      "type": "string",
+      "description": "Filtro ?load_id= en GET /api/v1/import/logs/ (entero; si no es numerico el API responde 400)."
+    },
+    {
+      "key": "import_data_source",
+      "value": "AVISTI_IMPORTER",
+      "type": "string",
+      "description": "Campo data_source del POST /api/v1/import/excel/ (obligatorio, se envia a p_data_source del SP)."
+    },
+    {
+      "key": "import_loaded_by",
+      "value": "admin@avisti.com",
+      "type": "string",
+      "description": "Campo loaded_by del POST /api/v1/import/excel/ (obligatorio, se envia a p_loaded_by del SP)."
+    },
+    {
+      "key": "import_file_path",
+      "value": "C:/ruta/a/tu/archivo.xlsx",
+      "type": "string",
+      "description": "Ruta absoluta local del archivo a subir en los POST multipart de Excel y CSV."
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticacion",
+      "description": "Login publico que emite el token Bearer y logout protegido que lo invalida en la tabla admin_tokens. El token se guarda en la variable de coleccion {{token}}.",
+      "item": [
+        {
+          "name": "Login (publico) - guarda el token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Estructura estandar de exito', function () {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.data.token).to.be.a('string');",
+                  "    pm.expect(body.data.token).to.have.lengthOf(64);",
+                  "    pm.expect(body.data.expires_at).to.be.a('string');",
+                  "});",
+                  "if (body.data && body.data.token) {",
+                  "    pm.collectionVariables.set('token', body.data.token);",
+                  "    pm.collectionVariables.set('expires_at', body.data.expires_at);",
+                  "    console.log('Token guardado en la variable token');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login",
+                ""
+              ]
+            },
+            "description": "**Funcion**: autentica a un administrador y emite un token de acceso.\n\n**Auth**: publica (no requiere token).\n\n**Body (application/json)**:\n- `email` (string, obligatorio, EmailField max 150): email del registro en `admins`.\n- `password` (string, obligatorio, write-only): contrasena en texto plano; el API la valida con `check_password`.\n\n**Respuesta 200**:\n```json\n{\"success\": true, \"message\": \"Autenticacion exitosa\", \"data\": {\"token\": \"<64 hex>\", \"expires_at\": \"2026-09-20T08:11:01Z\"}}\n```\nEl test guarda el token en `{{token}}` y la expiracion en `{{expires_at}}`.\n\n**Errores**:\n- `400` `{\"success\": false, \"message\": \"Datos invalidos\", \"errors\": {...}}` si falta email/password o el email no tiene formato valido.\n- `401` `{\"success\": false, \"message\": \"Credenciales invalidas\", \"errors\": {\"credentials\": \"invalid\"}}` si el email no existe o la contrasena no coincide."
+          }
+        },
+        {
+          "name": "Login (credenciales invalidas) - 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de error', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.message).to.eql('Credenciales invalidas');",
+                  "    pm.expect(body.errors.credentials).to.eql('invalid');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"contrasena-incorrecta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login",
+                ""
+              ]
+            },
+            "description": "**Funcion**: comprueba que el login rechace credenciales invalidas.\n\n**Auth**: publica.\n\n**Body**: igual que el login correcto, con `password` incorrecta (o `email` inexistente).\n\n**Respuesta esperada 401**:\n```json\n{\"success\": false, \"message\": \"Credenciales invalidas\", \"errors\": {\"credentials\": \"invalid\"}}\n```\n\nSi falta `email` o `password` la respuesta es `400` con `errors` por campo."
+          }
+        },
+        {
+          "name": "Logout (protegido) - invalida el token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Token eliminado de la base de datos', function () {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.message).to.eql('Sesion finalizada correctamente');",
+                  "    pm.expect(body.data).to.eql(null);",
+                  "});",
+                  "pm.collectionVariables.set('token', '');",
+                  "pm.collectionVariables.set('expires_at', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout",
+                ""
+              ]
+            },
+            "description": "**Funcion**: cierra la sesion del administrador eliminando de `admin_tokens` el token enviado en la peticion.\n\n**Auth**: protegida, requiere `Authorization: Bearer {{token}}`.\n\n**Parametros**: ninguno (sin body ni query params).\n\n**Respuesta 200**:\n```json\n{\"success\": true, \"message\": \"Sesion finalizada correctamente\", \"data\": null}\n```\n\n**Errores**: `401` si el header falta o el token ya expiro / no existe: `{\"success\": false, \"message\": \"Token invalido o expirado\", \"errors\": {\"detail\": \"...\"}}`.\n\nEl test limpia la variable `{{token}}`; volver a ejecutar el login antes de usar los endpoints protegidos."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Catalogo (requieren token)",
+      "description": "GET protegidos de solo lectura sobre las tablas products y equipments. Todos exigen Authorization: Bearer <token> (401 si falta o es invalido) y responden {\"success\": true, \"message\": \"...\", \"data\": [...]}.",
+      "item": [
+        {
+          "name": "Productos - lista completa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Estructura estandar de exito', function () {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.message).to.eql('Productos consultados correctamente');",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "});",
+                  "pm.test('Metadatos de paginacion', function () {",
+                  "    const pagination = body.pagination;",
+                  "    pm.expect(pagination).to.be.an('object');",
+                  "    ['count', 'page', 'page_size', 'total_pages', 'next', 'previous', 'has_next', 'has_previous'].forEach(function (field) {",
+                  "        pm.expect(pagination).to.have.property(field);",
+                  "    });",
+                  "    pm.expect(pagination.count).to.be.a('number');",
+                  "    pm.expect(pagination.page).to.eql(parseInt(pm.collectionVariables.get('page'), 10));",
+                  "    pm.expect(pagination.page_size).to.eql(parseInt(pm.collectionVariables.get('page_size'), 10));",
+                  "    pm.expect(body.data.length).to.be.at.most(pagination.page_size);",
+                  "});",
+                  "if (body.data && body.data.length) {",
+                  "    pm.test('Campos del producto', function () {",
+                  "        pm.expect(body.data[0]).to.have.property('product_id');",
+                  "        pm.expect(body.data[0]).to.have.property('product_code');",
+                  "        pm.expect(body.data[0]).to.have.property('category');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/?page={{page}}&page_size={{page_size}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "{{page}}",
+                  "description": "Numero de pagina (entero >= 1). Fuera de rango responde 404."
+                },
+                {
+                  "key": "page_size",
+                  "value": "{{page_size}}",
+                  "description": "Registros por pagina (1..100). Mayor al maximo responde 400."
+                },
+                {
+                  "key": "search",
+                  "value": "{{search}}",
+                  "description": "Filtro opcional. Habilitar esta fila para buscar por coincidencia parcial (icontains) en product_code, name o description.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Funcion**: lista los productos de la tabla `products` ordenados por `product_id`, de forma paginada.\n\n**Auth**: protegida, `Authorization: Bearer {{token}}`.\n\n**Query params**:\n- `page` (entero >= 1, default 1): pagina solicitada. Usa la variable `{{page}}`.\n- `page_size` (entero 1..`PAGINATION_MAX_PAGE_SIZE`, default `PAGINATION_DEFAULT_PAGE_SIZE` = 20): registros por pagina. Usa `{{page_size}}`.\n- `search` (string, opcional): si se envia, filtra con `icontains` sobre `product_code`, `name` y `description` (equivale a `?search=HP`). Revisar la peticion 'Productos - filtrando por search'.\n\n**Respuesta 200**:\n```json\n{\"success\": true, \"message\": \"Productos consultados correctamente\", \"data\": [{\"product_id\": 1, \"product_code\": \"P-001\", \"name\": \"...\", \"url_image\": \"...\", \"description\": \"...\", \"category\": \"...\", \"created_at\": \"...\"}], \"pagination\": {\"count\": 8691, \"page\": 1, \"page_size\": 20, \"total_pages\": 435, \"next\": \".../?page=2&page_size=20\", \"previous\": null, \"has_next\": true, \"has_previous\": false}}\n```\n\n**Errores**:\n- `400` si `page`/`page_size` no son enteros positivos o `page_size` supera el maximo: `{\"success\": false, \"message\": \"Parametros de consulta invalidos\", \"errors\": {\"page\": \"invalid\"}}`.\n- `404` si la pagina no existe: `{\"errors\": {\"page\": \"out_of_range\"}}`.\n- `401` `{\"success\": false, \"message\": \"Token invalido o expirado\", \"errors\": {\"detail\": \"...\"}}`."
+          }
+        },
+        {
+          "name": "Productos - filtrando por search",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Filtro search aplicado', function () {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "    const term = pm.collectionVariables.get('search').toLowerCase();",
+                  "    body.data.forEach(function (item) {",
+                  "        const blob = [item.product_code, item.name, item.description].join(' ').toLowerCase();",
+                  "        pm.expect(blob).to.include(term);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/?search={{search}}&page={{page}}&page_size={{page_size}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "{{search}}",
+                  "description": "Texto a buscar (coincidencia parcial, sin distinguir mayusculas) en product_code, name o description. Cambiar el valor de la variable search para otras busquedas."
+                },
+                {
+                  "key": "page",
+                  "value": "{{page}}",
+                  "description": "Pagina del resultado filtrado (el count de pagination refleja el total filtrado)."
+                },
+                {
+                  "key": "page_size",
+                  "value": "{{page_size}}",
+                  "description": "Registros por pagina (1..100)."
+                }
+              ]
+            },
+            "description": "**Funcion**: lista productos filtrando por texto, de forma paginada.\n\n**Auth**: protegida, `Authorization: Bearer {{token}}`.\n\n**Query params**:\n- `search` (string, obligatorio en esta peticion): se compara con `icontains` contra `product_code`, `name` y `description`. Usa la variable `{{search}}` (valor por defecto `HP`; con `HP` el `count` es 2022).\n- `page` / `page_size`: paginacion aplicada **despues** del filtro.\n\n**Respuesta 200**: igual estructura que el listado completo (con `pagination`); `data` puede venir vacio `[]` si no hay coincidencias (no es error). El filtro se conserva en `next`/`previous`.\n\n**Errores**: `400`/`404` por paginacion invalida y `401` si el token falta o es invalido."
+          }
+        },
+        {
+          "name": "Equipos - lista completa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Estructura estandar de exito', function () {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.message).to.eql('Equipos consultados correctamente');",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "});",
+                  "pm.test('Metadatos de paginacion', function () {",
+                  "    const pagination = body.pagination;",
+                  "    pm.expect(pagination.count).to.be.a('number');",
+                  "    pm.expect(pagination.page).to.eql(parseInt(pm.collectionVariables.get('page'), 10));",
+                  "    pm.expect(pagination.page_size).to.eql(parseInt(pm.collectionVariables.get('page_size'), 10));",
+                  "    pm.expect(body.data.length).to.be.at.most(pagination.page_size);",
+                  "    pm.expect(pagination.total_pages).to.be.a('number');",
+                  "});",
+                  "if (body.data && body.data.length) {",
+                  "    pm.test('Campos del equipo', function () {",
+                  "        pm.expect(body.data[0]).to.have.property('equipment_id');",
+                  "        pm.expect(body.data[0]).to.have.property('serial_number');",
+                  "        pm.expect(body.data[0]).to.have.property('life_cycle_status');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipments/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "equipments",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "product_id",
+                  "value": "{{product_id}}",
+                  "description": "Filtro opcional por producto (entero). Habilitar para listar solo los equipos de un producto.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Funcion**: lista los equipos de la tabla `equipments` (con `select_related('product')`) ordenados por `equipment_id`, de forma paginada.\n\n**Auth**: protegida, `Authorization: Bearer {{token}}`.\n\n**Query params**:\n- `page` / `page_size`: paginacion. Para convertir este listado en paginado, fijar la variable `{{page}}` (default `1`) y `{{page_size}}` (default `20`); la URL ya los incluye.\n- `product_id` (entero, opcional): si se habilita esta fila (`disabled: false`), filtra por producto y la respuesta es la pagina del conjunto filtrado.\n\n**Respuesta 200**:\n```json\n{\"success\": true, \"message\": \"Equipos consultados correctamente\", \"data\": [...], \"pagination\": {\"count\": N, \"page\": 1, \"page_size\": 20, \"total_pages\": K, \"next\": \"...\", \"previous\": null, \"has_next\": true, \"has_previous\": false}}\n```\n\n**Errores**:\n- `400` `{\"success\": false, \"message\": \"Parametros de consulta invalidos\", \"errors\": {\"page_size\": \"max_100\"}}` si `page_size` > 100 o no numerico.\n- `400` `{\"errors\": {\"product_id\": \"invalid\"}}` si `product_id` no es numerico.\n- `404` si la pagina no existe.\n- `401` si el token falta o es invalido."
+          }
+        },
+        {
+          "name": "Equipos - filtrando por product_id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "const productId = parseInt(pm.collectionVariables.get('product_id'), 10);",
+                  "pm.test('Solo equipos del producto indicado', function () {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "    body.data.forEach(function (item) {",
+                  "        pm.expect(item.product_id).to.eql(productId);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipments/?product_id={{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "equipments",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "product_id",
+                  "value": "{{product_id}}",
+                  "description": "Identificador del producto (entero, columna equipments.product_id). Debe existir para obtener resultados; si es vacio o no numerico el API responde 400."
+                }
+              ]
+            },
+            "description": "**Funcion**: lista los equipos asociados a un producto.\n\n**Auth**: protegida, `Authorization: Bearer {{token}}`.\n\n**Query params**:\n- `product_id` (entero, obligatorio en esta peticion): valor de `{{product_id}}` (por defecto `1`). Un valor no numerico produce `400` con `errors.product_id = \"invalid\"`; un entero inexistente simplemente devuelve `data: []`.\n\n**Respuesta 200**: `{\"success\": true, \"message\": \"Equipos consultados correctamente\", \"data\": [...]}`.\n\n**Errores**: `400` parametros invalidos, `401` token ausente/invalido."
+          }
+        },
+        {
+          "name": "Equipos - product_id invalido - 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', function () { pm.response.to.have.status(400); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de error de validacion', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.message).to.eql('Parametros de consulta invalidos');",
+                  "    pm.expect(body.errors.product_id).to.eql('invalid');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipments/?product_id=abc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "equipments",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "product_id",
+                  "value": "abc",
+                  "description": "Valor no numerico a proposito para provocar el 400 (validacion int() del API)."
+                }
+              ]
+            },
+            "description": "**Funcion**: comprueba la validacion del filtro `product_id`.\n\n**Auth**: protegida (el 400 de validacion solo se alcanza con token valido).\n\n**Query params**:\n- `product_id=abc` (string no numerico): el API intenta `int()` y responde `400`.\n\n**Respuesta esperada 400**:\n```json\n{\"success\": false, \"message\": \"Parametros de consulta invalidos\", \"errors\": {\"product_id\": \"invalid\"}}\n```"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Importacion (publicos - sin cambios)",
+      "description": "Endpoints originales de carga de archivos. NO requieren token y mantienen intacto su flujo de parsers, servicios y procedimientos almacenados. Exito: {\"success\": true, \"message\": \"Informacion procesada correctamente\", \"data\": ...}.",
+      "item": [
+        {
+          "name": "Importar Excel (multipart) - publico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Respuesta con formato estandar', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('success');",
+                  "    pm.expect(body).to.have.property('message');",
+                  "    pm.expect(body.success ? body : body.errors).to.exist;",
+                  "});",
+                  "pm.test('No responde 401 (endpoint publico)', function () {",
+                  "    pm.response.to.not.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "{{import_file_path}}",
+                  "description": "Archivo .xlsx a importar. Se procesa la hoja IMPORT_EXCEL_SHEET_NAME o la primera hoja. Su nombre de archivo se envia al SP como p_file_name."
+                },
+                {
+                  "key": "data_source",
+                  "type": "text",
+                  "value": "{{import_data_source}}",
+                  "description": "Obligatorio. Origen logico de los datos (p_data_source del procedimiento almacenado)."
+                },
+                {
+                  "key": "loaded_by",
+                  "type": "text",
+                  "value": "{{import_loaded_by}}",
+                  "description": "Obligatorio. Usuario o correo que realiza la carga (p_loaded_by del procedimiento almacenado)."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/import/excel/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "import",
+                "excel",
+                ""
+              ]
+            },
+            "description": "**Funcion**: importa un archivo Excel enviando los registros como string JSON al procedimiento almacenado `SP_IMPORT_EXCEL`.\n\n**Auth**: publica (sin token).\n\n**Body (multipart/form-data)**:\n- `file` (archivo, obligatorio): `.xlsx`. Ajustar la variable `{{import_file_path}}` con la ruta absoluta real; en Postman tambien se puede usar el selector de archivo.\n- `data_source` (texto, obligatorio): variable `{{import_data_source}}` (por defecto `AVISTI_IMPORTER`).\n- `loaded_by` (texto, obligatorio): variable `{{import_loaded_by}}`.\n\n**Respuesta 200**: `{\"success\": true, \"message\": \"Informacion procesada correctamente\", \"data\": {\"load_id\": ..., \"status\": ...}}`.\n\n**Errores**:\n- `400` si falta `file`, `data_source` o `loaded_by`: `{\"success\": false, \"message\": \"No se pudo procesar la informacion\", \"errors\": {\"data_source\": \"required\", \"loaded_by\": \"required\"}}`; o si el archivo no es valido (`ImportValidationError`).\n- `502` `{\"success\": false, \"message\": \"No se pudo procesar la informacion\", \"errors\": {\"database\": \"processing_error\"}}` si el procedimiento almacenado falla."
+          }
+        },
+        {
+          "name": "Importar CSV (multipart) - publico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('No responde 401 (endpoint publico)', function () {",
+                  "    pm.response.to.not.have.status(401);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de respuesta', function () {",
+                  "    pm.expect(body).to.have.property('success');",
+                  "    pm.expect(body).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "{{import_file_path}}",
+                  "description": "Archivo .csv en UTF-8 (tambien acepta BOM). El separador se configura con IMPORT_CSV_DELIMITER (coma por defecto)."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/import/csv/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "import",
+                "csv",
+                ""
+              ]
+            },
+            "description": "**Funcion**: importa un archivo CSV enviando los registros como string JSON al procedimiento almacenado `SP_IMPORT_CSV`.\n\n**Auth**: publica (sin token).\n\n**Body (multipart/form-data)**:\n- `file` (archivo, obligatorio): `.csv` codificado en UTF-8 (con o sin BOM). Enviar un CSV real en esta variable (`{{import_file_path}}` debe apuntar a un `.csv`).\n\n**Respuesta 200**: `{\"success\": true, \"message\": \"Informacion procesada correctamente\", \"data\": ...}`.\n\n**Errores**:\n- `400` si falta el archivo o el contenido no es valido.\n- `502` si el procedimiento almacenado falla.\n\nEste endpoint no acepta `data_source` ni `loaded_by`."
+          }
+        },
+        {
+          "name": "Importar JSON (raw) - publico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('No responde 401 (endpoint publico)', function () {",
+                  "    pm.response.to.not.have.status(401);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de respuesta', function () {",
+                  "    pm.expect(body).to.have.property('success');",
+                  "    pm.expect(body).to.have.property('message');",
+                  "});",
+                  "if (body.success === false && body.errors && body.errors.database) {",
+                  "    console.log('La peticion llego al procedimiento almacenado (502): la ruta es publica y el flujo de importacion no cambio.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"documento\": \"12345678\",\n    \"nombre\": \"Juan Perez\",\n    \"monto\": 150.5\n  }\n]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/import/json/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "import",
+                "json",
+                ""
+              ]
+            },
+            "description": "**Funcion**: importa registros enviados directamente en el cuerpo JSON, serializados como string y enviados al procedimiento almacenado `SP_IMPORT_JSON`.\n\n**Auth**: publica (sin token).\n\n**Body (application/json)**:\n- Se acepta **un objeto** `{...}` o **una lista de objetos** `[{...}, {...}]`.\n- Cada clave del objeto es libre (`documento`, `nombre`, `monto`, ...); los valores se envian tal cual (JSON, null permitido). El body no lleva envoltorio `records`.\n\n**Respuesta 200**: `{\"success\": true, \"message\": \"Informacion procesada correctamente\", \"data\": ...}`.\n\n**Errores**:\n- `400` `{\"success\": false, \"message\": \"No se pudo procesar la informacion\", \"errors\": {...}}` si el JSON es invalido o no es objeto/lista de objetos.\n- `502` si el procedimiento almacenado falla (la peticion igualmente alcanzo el SP, confirmando que la ruta sigue publica)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Consultas de importacion (requieren token)",
+      "description": "GET protegidos sobre data_loads y procedure_execution_logs. Exigen Authorization: Bearer <token>; sin token o con token invalido responden 401 con el formato estandar de error.",
+      "item": [
+        {
+          "name": "Cargas de datos (data-loads)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Estructura estandar de exito', function () {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.message).to.eql('Cargas de datos consultadas correctamente');",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "});",
+                  "if (body.data && body.data.length > 1) {",
+                  "    const dates = body.data.map(function (row) { return row.load_date; });",
+                  "    pm.test('Ordenado por load_date descendente', function () {",
+                  "        const sorted = dates.slice().sort().reverse();",
+                  "        pm.expect(dates).to.eql(sorted);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/import/data-loads/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "import",
+                "data-loads",
+                ""
+              ]
+            },
+            "description": "**Funcion**: lista el historico de cargas (`DataLoad.objects.all().order_by('-load_date')`).\n\n**Auth**: protegida, `Authorization: Bearer {{token}}`.\n\n**Parametros**: ninguno.\n\n**Respuesta 200**:\n```json\n{\"success\": true, \"message\": \"Cargas de datos consultadas correctamente\", \"data\": [{\"load_id\": 1, \"data_source\": \"AVISTI_IMPORTER\", \"file_name\": \"carga-1.xlsx\", \"load_date\": \"2026-09-18T21:54:21Z\", \"loaded_by\": \"usuario\", \"processed_records\": 10, \"load_status\": \"SUCCESS\"}]}\n```\n\n**Errores**: `401` `{\"success\": false, \"message\": \"Token invalido o expirado\", \"errors\": {\"detail\": \"...\"}}` si falta el header o el token no existe / expiro."
+          }
+        },
+        {
+          "name": "Bitacora de ejecucion (logs)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Estructura estandar de exito', function () {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.message).to.eql('Bitacora de ejecucion consultada correctamente');",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "});",
+                  "if (body.data && body.data.length) {",
+                  "    pm.test('Campos del log', function () {",
+                  "        pm.expect(body.data[0]).to.have.property('log_id');",
+                  "        pm.expect(body.data[0]).to.have.property('procedure_name');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/import/logs/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "import",
+                "logs",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "load_id",
+                  "value": "{{load_id}}",
+                  "description": "Filtro opcional por carga (entero). Habilitar esta fila para ver solo los logs de una carga.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Funcion**: lista la bitacora de ejecucion de los procedimientos almacenados (`ProcedureExecutionLog.objects.all().order_by('-created_at')`).\n\n**Auth**: protegida, `Authorization: Bearer {{token}}`.\n\n**Query params**:\n- `load_id` (entero, opcional): si se envia, filtra los logs de esa carga. Valor no numerico produce `400`.\n\n**Respuesta 200**:\n```json\n{\"success\": true, \"message\": \"Bitacora de ejecucion consultada correctamente\", \"data\": [{\"log_id\": 1, \"load_id\": 5, \"procedure_name\": \"sp_importar_excel\", \"log_level\": \"INFO\", \"step_description\": \"Paso 1\", \"message\": \"Registro procesado\", \"created_at\": \"...\"}]}\n```\n\n**Errores**: `400` parametros invalidos, `401` token ausente/invalido."
+          }
+        },
+        {
+          "name": "Bitacora - filtrando por load_id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "const loadId = parseInt(pm.collectionVariables.get('load_id'), 10);",
+                  "pm.test('Solo logs de la carga indicada', function () {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "    body.data.forEach(function (item) {",
+                  "        pm.expect(item.load_id).to.eql(loadId);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/import/logs/?load_id={{load_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "import",
+                "logs",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "load_id",
+                  "value": "{{load_id}}",
+                  "description": "Identificador de la carga (columna procedure_execution_logs.load_id). Ajustar y reutilizar el load_id devuelto en el endpoint data-loads."
+                }
+              ]
+            },
+            "description": "**Funcion**: lista unicamente los logs asociados a una carga concreta.\n\n**Auth**: protegida, `Authorization: Bearer {{token}}`.\n\n**Query params**:\n- `load_id` (entero, obligatorio en esta peticion): variable `{{load_id}}` (por defecto `1`). Conviene copiarlo de la respuesta de 'Cargas de datos (data-loads)'.\n\n**Respuesta 200**: `{\"success\": true, \"message\": \"Bitacora de ejecucion consultada correctamente\", \"data\": [...]}`; `data` puede ser `[]` si esa carga no genero logs.\n\n**Errores**: `400` si `load_id` no es numerico (`errors.load_id = \"invalid\"`), `401` si el token falta o es invalido."
+          }
+        },
+        {
+          "name": "Bitacora - load_id invalido - 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', function () { pm.response.to.have.status(400); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de error de validacion', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.message).to.eql('Parametros de consulta invalidos');",
+                  "    pm.expect(body.errors.load_id).to.eql('invalid');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/import/logs/?load_id=abc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "import",
+                "logs",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "load_id",
+                  "value": "abc",
+                  "description": "Valor no numerico a proposito para provocar el 400 (validacion int() del API)."
+                }
+              ]
+            },
+            "description": "**Funcion**: comprueba la validacion del filtro `load_id`.\n\n**Auth**: protegida.\n\n**Query params**:\n- `load_id=abc` (string no numerico).\n\n**Respuesta esperada 400**:\n```json\n{\"success\": false, \"message\": \"Parametros de consulta invalidos\", \"errors\": {\"load_id\": \"invalid\"}}\n```"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Pruebas de seguridad (401 / token invalido)",
+      "description": "Peticiones de contraste que verifican la proteccion obligatoria con token. Todas deben devolver HTTP 401 con {\"success\": false, \"message\": \"...\", \"errors\": {...}}.",
+      "item": [
+        {
+          "name": "401 - Productos sin header Authorization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401 sin token', function () { pm.response.to.have.status(401); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de error', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.message).to.be.a('string');",
+                  "    pm.expect(body.errors).to.have.property('detail');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ""
+              ]
+            },
+            "description": "**Funcion**: verifica que GET /api/v1/products/ sin header `Authorization` sea denegado.\n\n**Auth**: ninguna (a proposito).\n\n**Respuesta esperada 401**:\n```json\n{\"success\": false, \"message\": \"Credenciales de autenticacion no proporcionadas\", \"errors\": {\"detail\": \"Authentication credentials were not provided.\"}}\n```"
+          }
+        },
+        {
+          "name": "401 - Equipos sin header Authorization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401 sin token', function () { pm.response.to.have.status(401); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de error', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.errors).to.have.property('detail');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipments/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "equipments",
+                ""
+              ]
+            },
+            "description": "**Funcion**: GET /api/v1/equipments/ sin header `Authorization` debe devolver `401`.\n\n**Auth**: ninguna (a proposito).\n\n**Respuesta esperada 401**: `{\"success\": false, \"message\": \"Credenciales de autenticacion no proporcionadas\", \"errors\": {\"detail\": \"...\"}}`."
+          }
+        },
+        {
+          "name": "401 - Cargas de datos sin header Authorization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401 sin token', function () { pm.response.to.have.status(401); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de error', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.errors).to.have.property('detail');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/import/data-loads/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "import",
+                "data-loads",
+                ""
+              ]
+            },
+            "description": "**Funcion**: GET /api/v1/import/data-loads/ sin header `Authorization` debe devolver `401`.\n\n**Auth**: ninguna (a proposito).\n\n**Respuesta esperada 401**: `{\"success\": false, \"message\": \"Credenciales de autenticacion no proporcionadas\", \"errors\": {\"detail\": \"...\"}}`."
+          }
+        },
+        {
+          "name": "401 - Bitacora sin header Authorization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401 sin token', function () { pm.response.to.have.status(401); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de error', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.errors).to.have.property('detail');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/import/logs/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "import",
+                "logs",
+                ""
+              ]
+            },
+            "description": "**Funcion**: GET /api/v1/import/logs/ sin header `Authorization` debe devolver `401`.\n\n**Auth**: ninguna (a proposito).\n\n**Respuesta esperada 401**: `{\"success\": false, \"message\": \"Credenciales de autenticacion no proporcionadas\", \"errors\": {\"detail\": \"...\"}}`."
+          }
+        },
+        {
+          "name": "401 - Token inexistente o expirado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401 con token invalido', function () { pm.response.to.have.status(401); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Mensaje de token invalido o expirado', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.message).to.eql('Token invalido o expirado');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{invalid_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ""
+              ]
+            },
+            "description": "**Funcion**: comprueba que un token con formato correcto pero inexistente en `admin_tokens` (o expirado) sea rechazado.\n\n**Auth**: `Authorization: Bearer {{invalid_token}}` (valor inexistente de 64 caracteres).\n\n**Respuesta esperada 401**:\n```json\n{\"success\": false, \"message\": \"Token invalido o expirado\", \"errors\": {\"detail\": \"Token invalido o expirado\"}}\n```"
+          }
+        },
+        {
+          "name": "401 - Esquema de autorizacion incorrecto (Basic)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401 con esquema distinto de Bearer', function () { pm.response.to.have.status(401); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de error', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Basic YWRtaW5AYXZpc3RpLmNvbTpjbGF2ZQ==",
+                "description": "Header manual con esquema Basic en lugar de Bearer: el API solo acepta Bearer y responde 401."
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ""
+              ]
+            },
+            "description": "**Funcion**: verifica que el esquema del header sea exactamente `Bearer`.\n\n**Auth**: header manual `Authorization: Basic <base64>` (a proposito).\n\n**Respuesta esperada 401** con el formato estandar de error. `AdminTokenAuthentication` solo acepta `Bearer <token>`."
+          }
+        },
+        {
+          "name": "401 - Logout sin token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401 sin token', function () { pm.response.to.have.status(401); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Formato estandar de error', function () {",
+                  "    pm.expect(body.success).to.eql(false);",
+                  "    pm.expect(body.errors).to.have.property('detail');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout",
+                ""
+              ]
+            },
+            "description": "**Funcion**: confirma que el logout tambien exige token (no se puede invalidar una sesion sin credenciales).\n\n**Auth**: ninguna (a proposito).\n\n**Respuesta esperada 401**: `{\"success\": false, \"message\": \"Credenciales de autenticacion no proporcionadas\", \"errors\": {\"detail\": \"...\"}}`."
+          }
+        }
+      ]
+    }
+  ]
+}

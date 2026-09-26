@@ -1,0 +1,69 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+*.egg
+pip-wheel-metadata/
+manifold.out
+
+# --- Virtualenvs ---
+.venv/
+venv/
+env/
+ENV/
+.conda/
+
+# --- Django ---
+db.sqlite3
+db.sqlite3-journal
+*.log
+media/
+staticfiles/
+static_root/
+
+# --- Env / secretos (NUNCA commitear credenciales) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
+*-key.json
+
+# --- Tests / coverage ---
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+nosetests.xml
+pytestdebug.log
+
+# --- IDEs ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- GCP / App Engine ---
+# OJO: app.yaml contiene DB_PASSWORD y SECRET_KEY en claro.
+# Se mantiene versionado para el deploy, pero rota esos valores
+# y migralos a Secret Manager cuanto antes.
+# Si prefieres no versionarlo: descomenta la siguiente linea.
+# app.yaml
+.appengine/
+gcloud-debug-logs.txt

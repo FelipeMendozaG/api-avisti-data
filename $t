@@ -1,0 +1,10 @@
+import io,json
+P=r'postman/API-Avistidata-Chepita.postman_collection.json'
+with io.open(P,encoding='utf-8') as f:
+    data=json.load(f)
+print('JSON valido')
+for f in data['item']:
+    for it in f.get('item',[]):
+        if 'validar' in it:
+            print('peticion validada:', it.get('name','?'))
+
