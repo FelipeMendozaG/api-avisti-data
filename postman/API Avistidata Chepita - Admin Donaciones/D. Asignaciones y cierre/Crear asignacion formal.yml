@@ -1,0 +1,42 @@
+info:
+  name: Crear asignacion formal
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/api/v1/admin/donation-assignments"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "request_id": {{request_id}},
+        "equipment_id": {{equipment_id}},
+        "delivery_date": "{{delivery_date}}",
+        "donation_deed_ref": "{{donation_deed_ref}}",
+        "estimated_beneficiaries_impact": {{estimated_beneficiaries_impact}}
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Registra una asignacion dentro de una transaccion. Bloquea solicitud y equipo, verifica que la solicitud este APPROVED, que el equipo no este asignado y que tenga diagnostico tecnico favorable. Luego actualiza equipments.life_cycle_status a ASSIGNED. Si la cantidad asignada cubre requested_quantity, la solicitud pasa a DELIVERED.
+
+  Body requerido:
+  - `request_id`: entero positivo.
+  - `equipment_id`: entero positivo.
+  - `delivery_date`: fecha YYYY-MM-DD.
+  - `donation_deed_ref`: texto no vacio, maximo 100 caracteres.
+  - `estimated_beneficiaries_impact`: entero mayor o igual a 0.
+
+  Respuesta 201: asignacion creada con assignment_id, request_id, equipment_id, delivery_date, donation_deed_ref y estimated_beneficiaries_impact.
+
+  Errores: 400 datos invalidos; 401 token invalido; 404 solicitud o equipo inexistente; 409 solicitud no aprobada, equipo no disponible/asignado o sin evaluacion favorable.

@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.authentication",
     "apps.catalog",
     "apps.imports",
+    "apps.donations",
 ]
 
 # CorsMiddleware debe ir lo más alto posible para que las cabeceras CORS se

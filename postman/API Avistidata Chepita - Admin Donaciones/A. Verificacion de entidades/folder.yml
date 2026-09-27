@@ -1,0 +1,11 @@
+info:
+  name: A. Verificacion de entidades
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit
+
+docs:
+  content: Consulta y validacion legal de las instituciones registradas.
+  type: text/markdown

@@ -1,0 +1,48 @@
+info:
+  name: Listar solicitudes
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{base_url}}/api/v1/admin/donation-requests?request_status={{request_status}}&request_type={{request_type}}&date_from={{date_from}}&date_to={{date_to}}&page={{page}}&page_size={{page_size}}"
+  params:
+    - name: request_status
+      value: "{{request_status}}"
+      type: query
+    - name: request_type
+      value: "{{request_type}}"
+      type: query
+    - name: date_from
+      value: "{{date_from}}"
+      type: query
+    - name: date_to
+      value: "{{date_to}}"
+      type: query
+    - name: page
+      value: "{{page}}"
+      type: query
+    - name: page_size
+      value: "{{page_size}}"
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Lista solicitudes de todas las entidades con la entidad solicitante incluida.
+
+  Parametros query opcionales:
+  - `request_status`: ON_HOLD, APPROVED, REJECTED o DELIVERED.
+  - `request_type`: filtra por tipo de solicitud.
+  - `date_from`: fecha minima inclusiva YYYY-MM-DD.
+  - `date_to`: fecha maxima inclusiva YYYY-MM-DD.
+  - `page` y `page_size`: paginacion.
+
+  Respuesta 200: cada elemento incluye entity, request_type, request_date, requested_quantity, need_description, request_status y assignments.
+
+  Errores: 400 filtros o fechas invalidos; 401 token invalido.

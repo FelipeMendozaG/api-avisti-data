@@ -42,7 +42,7 @@ class PaginationError(Exception):
 
     def as_response(self):
         return Response(
-            {"success": False, "message": self.message, "errors": self.errors},
+            {"status": "error", "success": False, "message": self.message, "errors": self.errors},
             status=self.status_code,
         )
 

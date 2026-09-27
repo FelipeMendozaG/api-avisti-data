@@ -1,0 +1,35 @@
+info:
+  name: Actualizar verificacion de entidad
+  type: http
+  seq: 2
+
+http:
+  method: PATCH
+  url: "{{base_url}}/api/v1/admin/entities/{{entity_id}}/verification"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "verification_status": "{{verification_status}}"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Actualiza el estado legal de una entidad.
+
+  Path parameter: `entity_id` entero.
+
+  Body requerido: `{ "verification_status": "VERIFIED" }`. Valores validos: PENDING, VERIFIED, REJECTED.
+
+  Respuesta 200: entidad actualizada.
+
+  Errores: 400 body o estado invalido; 401 token invalido; 404 entidad inexistente.

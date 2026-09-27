@@ -1,0 +1,85 @@
+opencollection: 1.0.0
+
+info:
+  name: API Avistidata Chepita - Admin Donaciones
+
+request:
+  auth:
+    type: bearer
+    token: "{{token}}"
+  variables:
+    - name: base_url
+      value: http://localhost:8000
+    - name: token
+      value: ""
+    - name: entity_id
+      value: "1"
+    - name: request_id
+      value: "1"
+    - name: equipment_id
+      value: "1"
+    - name: assignment_id
+      value: "1"
+    - name: verification_status
+      value: VERIFIED
+    - name: request_status
+      value: APPROVED
+    - name: request_type
+      value: DONATION
+    - name: search
+      value: educacion
+    - name: date_from
+      value: 2026-01-01
+    - name: date_to
+      value: 2026-12-31
+    - name: page
+      value: "1"
+    - name: page_size
+      value: "20"
+    - name: delivery_date
+      value: 2026-10-15
+    - name: donation_deed_ref
+      value: ACTA-DON-2026-0001
+    - name: estimated_beneficiaries_impact
+      value: "25"
+
+docs:
+  content: |-
+    # API administrativa de donaciones y convenios
+
+    Coleccion Postman v2.1 importable en Postman o Bruno.
+
+    ## Requisitos
+
+    Todas las peticiones requieren `Authorization: Bearer {{token}}`. Ejecuta primero el login de la coleccion principal o define manualmente la variable `token`.
+
+    Base URL: `{{base_url}}`
+
+    ## Envelope
+
+    Exito: `{"status": "success", "success": true, "message": "...", "data": ...}`
+
+    Error: `{"status": "error", "success": false, "message": "...", "errors": ...}`
+
+    ## Estados validos
+
+    - Entidades: `PENDING`, `VERIFIED`, `REJECTED`.
+    - Solicitudes: `ON_HOLD`, `APPROVED`, `REJECTED`, `DELIVERED`.
+    - Para asignar: la solicitud debe estar `APPROVED`.
+    - Equipos candidatos: `DEPRECIATED` o `AVAILABLE`, sin asignacion previa y con ultima evaluacion tecnica operativa y favorable.
+
+    ## Orden recomendado
+
+    1. Listar entidades y verificar una entidad.
+    2. Listar solicitudes y aprobar una solicitud.
+    3. Consultar equipos disponibles.
+    4. Crear una asignacion.
+    5. Consultar el detalle de la solicitud.
+    6. Eliminar la asignacion solo para revertir un registro incorrecto.
+  type: text/markdown
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git

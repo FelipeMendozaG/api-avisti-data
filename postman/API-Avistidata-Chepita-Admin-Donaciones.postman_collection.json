@@ -1,0 +1,287 @@
+{
+  "info": {
+    "_postman_id": "b2c6e5f1-admin-donations-avistidata-v1",
+    "name": "API Avistidata Chepita - Admin Donaciones",
+    "description": "# API administrativa de donaciones y convenios\n\nColeccion Postman v2.1 importable en Postman o Bruno.\n\n## Requisitos\n\nTodas las peticiones requieren `Authorization: Bearer {{token}}`. Ejecuta primero el login de la coleccion principal o define manualmente la variable `token`.\n\nBase URL: `{{base_url}}`\n\n## Envelope\n\nExito: `{\"status\": \"success\", \"success\": true, \"message\": \"...\", \"data\": ...}`\n\nError: `{\"status\": \"error\", \"success\": false, \"message\": \"...\", \"errors\": ...}`\n\n## Estados validos\n\n- Entidades: `PENDING`, `VERIFIED`, `REJECTED`.\n- Solicitudes: `ON_HOLD`, `APPROVED`, `REJECTED`, `DELIVERED`.\n- Para asignar: la solicitud debe estar `APPROVED`.\n- Equipos candidatos: `DEPRECIATED` o `AVAILABLE`, sin asignacion previa y con ultima evaluacion tecnica operativa y favorable.\n\n## Orden recomendado\n\n1. Listar entidades y verificar una entidad.\n2. Listar solicitudes y aprobar una solicitud.\n3. Consultar equipos disponibles.\n4. Crear una asignacion.\n5. Consultar el detalle de la solicitud.\n6. Eliminar la asignacion solo para revertir un registro incorrecto.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Host y puerto del API, sin slash final."
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Token Bearer vigente obtenido desde POST /api/v1/auth/login/."
+    },
+    {
+      "key": "entity_id",
+      "value": "1",
+      "type": "string",
+      "description": "ID de la entidad institucional."
+    },
+    {
+      "key": "request_id",
+      "value": "1",
+      "type": "string",
+      "description": "ID de la solicitud de donacion."
+    },
+    {
+      "key": "equipment_id",
+      "value": "1",
+      "type": "string",
+      "description": "ID del equipo que se desea asignar."
+    },
+    {
+      "key": "assignment_id",
+      "value": "1",
+      "type": "string",
+      "description": "ID de la asignacion formal."
+    },
+    {
+      "key": "verification_status",
+      "value": "VERIFIED",
+      "type": "string",
+      "description": "Nuevo estado legal de la entidad: PENDING, VERIFIED o REJECTED."
+    },
+    {
+      "key": "request_status",
+      "value": "APPROVED",
+      "type": "string",
+      "description": "Filtro de solicitud o nuevo estado. Para PATCH solo APPROVED o REJECTED."
+    },
+    {
+      "key": "request_type",
+      "value": "DONATION",
+      "type": "string",
+      "description": "Tipo de solicitud para filtrar."
+    },
+    {
+      "key": "search",
+      "value": "educacion",
+      "type": "string",
+      "description": "Busca entidades por tax_id o company_name."
+    },
+    {
+      "key": "date_from",
+      "value": "2026-01-01",
+      "type": "string",
+      "description": "Fecha inicial inclusiva de solicitudes, formato YYYY-MM-DD."
+    },
+    {
+      "key": "date_to",
+      "value": "2026-12-31",
+      "type": "string",
+      "description": "Fecha final inclusiva de solicitudes, formato YYYY-MM-DD."
+    },
+    {
+      "key": "page",
+      "value": "1",
+      "type": "string",
+      "description": "Numero de pagina, entero mayor o igual a 1."
+    },
+    {
+      "key": "page_size",
+      "value": "20",
+      "type": "string",
+      "description": "Cantidad de registros por pagina, entre 1 y 100."
+    },
+    {
+      "key": "product_query",
+      "value": "adaptador",
+      "type": "string",
+      "description": "Busqueda parcial por nombre, codigo o serie en available-for-donation."
+    },
+    {
+      "key": "delivery_date",
+      "value": "2026-10-15",
+      "type": "string",
+      "description": "Fecha de entrega en formato YYYY-MM-DD."
+    },
+    {
+      "key": "donation_deed_ref",
+      "value": "ACTA-DON-2026-0001",
+      "type": "string",
+      "description": "Codigo del acta o convenio, maximo 100 caracteres."
+    },
+    {
+      "key": "estimated_beneficiaries_impact",
+      "value": "25",
+      "type": "string",
+      "description": "Cantidad proyectada de beneficiarios, entero mayor o igual a 0."
+    }
+  ],
+  "item": [
+    {
+      "name": "A. Verificacion de entidades",
+      "description": "Consulta y validacion legal de las instituciones registradas.",
+      "item": [
+        {
+          "name": "Listar entidades",
+          "request": {
+            "method": "GET",
+            "description": "Lista entidades con paginacion.\n\nParametros query opcionales:\n- `verification_status`: PENDING, VERIFIED o REJECTED.\n- `search`: busca por RUC/tax_id o razon social/company_name.\n- `page`: pagina, default 1.\n- `page_size`: entre 1 y 100, default 20.\n\nRespuesta 200: `data` es un arreglo de entidades y `pagination` contiene count, page, page_size, total_pages, next, previous, has_next y has_previous.\n\nErrores: 400 para filtros o paginacion invalidos; 401 sin token valido.",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/entities?verification_status={{verification_status}}&search={{search}}&page={{page}}&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "entities"],
+              "query": [
+                {"key": "verification_status", "value": "{{verification_status}}"},
+                {"key": "search", "value": "{{search}}"},
+                {"key": "page", "value": "{{page}}"},
+                {"key": "page_size", "value": "{{page_size}}"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar verificacion de entidad",
+          "request": {
+            "method": "PATCH",
+            "description": "Actualiza el estado legal de una entidad.\n\nPath parameter: `entity_id` entero.\n\nBody requerido: `{ \"verification_status\": \"VERIFIED\" }`. Valores validos: PENDING, VERIFIED, REJECTED.\n\nRespuesta 200: entidad actualizada.\n\nErrores: 400 body o estado invalido; 401 token invalido; 404 entidad inexistente.",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verification_status\": \"{{verification_status}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/entities/{{entity_id}}/verification",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "entities", "{{entity_id}}", "verification"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "B. Gestion de solicitudes",
+      "description": "Consulta global, detalle y dictamen administrativo de solicitudes de donacion o convenios.",
+      "item": [
+        {
+          "name": "Listar solicitudes",
+          "request": {
+            "method": "GET",
+            "description": "Lista solicitudes de todas las entidades con la entidad solicitante incluida.\n\nParametros query opcionales:\n- `request_status`: ON_HOLD, APPROVED, REJECTED o DELIVERED.\n- `request_type`: filtra por tipo de solicitud.\n- `date_from`: fecha minima inclusiva YYYY-MM-DD.\n- `date_to`: fecha maxima inclusiva YYYY-MM-DD.\n- `page` y `page_size`: paginacion.\n\nRespuesta 200: cada elemento incluye entity, request_type, request_date, requested_quantity, need_description, request_status y assignments.\n\nErrores: 400 filtros o fechas invalidos; 401 token invalido.",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/donation-requests?request_status={{request_status}}&request_type={{request_type}}&date_from={{date_from}}&date_to={{date_to}}&page={{page}}&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "donation-requests"],
+              "query": [
+                {"key": "request_status", "value": "{{request_status}}"},
+                {"key": "request_type", "value": "{{request_type}}"},
+                {"key": "date_from", "value": "{{date_from}}"},
+                {"key": "date_to", "value": "{{date_to}}"},
+                {"key": "page", "value": "{{page}}"},
+                {"key": "page_size", "value": "{{page_size}}"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detalle de solicitud",
+          "request": {
+            "method": "GET",
+            "description": "Devuelve una solicitud especifica con la entidad completa, justificacion y el arreglo de asignaciones existentes.\n\nPath parameter: `request_id` entero.\n\nRespuesta 200: objeto de solicitud con `entity` y `assignments`.\n\nErrores: 401 token invalido; 404 solicitud inexistente.",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/donation-requests/{{request_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "donation-requests", "{{request_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Aprobar o rechazar solicitud",
+          "request": {
+            "method": "PATCH",
+            "description": "Cambia el dictamen de una solicitud.\n\nPath parameter: `request_id` entero.\n\nBody requerido: `{ \"request_status\": \"APPROVED\" }`. Solo se aceptan APPROVED o REJECTED.\n\nRespuesta 200: solicitud con su nuevo estado.\n\nErrores: 400 estado invalido; 401 token invalido; 404 solicitud inexistente.",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_status\": \"{{request_status}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/donation-requests/{{request_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "donation-requests", "{{request_id}}", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "C. Equipos aptos",
+      "description": "Busqueda de activos candidates para donacion.",
+      "item": [
+        {
+          "name": "Listar equipos disponibles para donacion",
+          "request": {
+            "method": "GET",
+            "description": "Lista equipos con life_cycle_status DEPRECIATED o AVAILABLE que no tienen una asignacion previa y cuya ultima evaluacion tecnica es operativa y favorable.\n\nParametros query opcionales: `product_query` (busqueda parcial, case-insensitive, sobre products.name, products.product_code o equipments.serial_number), `page` y `page_size`.\n\nRespuesta 200: cada equipo incluye identificacion, serial_number, vida util, valor, estado y `technical_evaluation`.\n\nErrores: 400 paginacion invalida; 401 token invalido.",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/equipments/available-for-donation?product_query={{product_query}}&page={{page}}&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "equipments", "available-for-donation"],
+              "query": [
+                {"key": "product_query", "value": "{{product_query}}"},
+                {"key": "page", "value": "{{page}}"},
+                {"key": "page_size", "value": "{{page_size}}"}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "D. Asignaciones y cierre",
+      "description": "Registro formal, reserva del activo y reversa de asignaciones.",
+      "item": [
+        {
+          "name": "Crear asignacion formal",
+          "request": {
+            "method": "POST",
+            "description": "Registra una asignacion dentro de una transaccion. Bloquea solicitud y equipo, verifica que la solicitud este APPROVED, que el equipo no este asignado y que tenga diagnostico tecnico favorable. Luego actualiza equipments.life_cycle_status a ASSIGNED. Si la cantidad asignada cubre requested_quantity, la solicitud pasa a DELIVERED.\n\nBody requerido:\n- `request_id`: entero positivo.\n- `equipment_id`: entero positivo.\n- `delivery_date`: fecha YYYY-MM-DD.\n- `donation_deed_ref`: texto no vacio, maximo 100 caracteres.\n- `estimated_beneficiaries_impact`: entero mayor o igual a 0.\n\nRespuesta 201: asignacion creada con assignment_id, request_id, equipment_id, delivery_date, donation_deed_ref y estimated_beneficiaries_impact.\n\nErrores: 400 datos invalidos; 401 token invalido; 404 solicitud o equipo inexistente; 409 solicitud no aprobada, equipo no disponible/asignado o sin evaluacion favorable.",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_id\": {{request_id}},\n  \"equipment_id\": {{equipment_id}},\n  \"delivery_date\": \"{{delivery_date}}\",\n  \"donation_deed_ref\": \"{{donation_deed_ref}}\",\n  \"estimated_beneficiaries_impact\": {{estimated_beneficiaries_impact}}\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/donation-assignments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "donation-assignments"]
+            }
+          }
+        },
+        {
+          "name": "Eliminar o revertir asignacion",
+          "request": {
+            "method": "DELETE",
+            "description": "Revierte una asignacion dentro de una transaccion. Elimina donation_assignments, restaura equipments.life_cycle_status a AVAILABLE si conserva vida util o DEPRECIATED si ya expiro, y devuelve una solicitud DELIVERED a APPROVED.\n\nPath parameter: `assignment_id` entero.\n\nRespuesta 200: `data: null`.\n\nErrores: 401 token invalido; 404 asignacion, equipo o solicitud inexistente.",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/donation-assignments/{{assignment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "donation-assignments", "{{assignment_id}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

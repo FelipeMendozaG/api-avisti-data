@@ -1,0 +1,24 @@
+info:
+  name: Detalle de solicitud
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{base_url}}/api/v1/admin/donation-requests/{{request_id}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Devuelve una solicitud especifica con la entidad completa, justificacion y el arreglo de asignaciones existentes.
+
+  Path parameter: `request_id` entero.
+
+  Respuesta 200: objeto de solicitud con `entity` y `assignments`.
+
+  Errores: 401 token invalido; 404 solicitud inexistente.

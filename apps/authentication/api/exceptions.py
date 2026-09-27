@@ -24,7 +24,7 @@ def api_exception_handler(exc, context):
         message = "No tiene permisos para realizar esta acción"
 
     return Response(
-        {"success": False, "message": message, "errors": {"detail": str(exc.detail)}},
+        {"status": "error", "success": False, "message": message, "errors": {"detail": str(exc.detail)}},
         status=response.status_code,
         headers=response.headers,
     )

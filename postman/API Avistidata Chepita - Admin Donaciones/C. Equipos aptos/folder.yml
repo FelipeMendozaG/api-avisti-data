@@ -1,0 +1,11 @@
+info:
+  name: C. Equipos aptos
+  type: folder
+  seq: 3
+
+request:
+  auth: inherit
+
+docs:
+  content: Busqueda de activos candidates para donacion.
+  type: text/markdown

@@ -10,4 +10,5 @@ urlpatterns = [
     path("api/v1/auth/", include("apps.authentication.api.urls")),
     path("api/v1/", include("apps.catalog.api.urls")),
     path("api/v1/import/", include("apps.imports.api.urls")),
+    path("api/v1/admin/", include("apps.donations.api.urls")),
 ]

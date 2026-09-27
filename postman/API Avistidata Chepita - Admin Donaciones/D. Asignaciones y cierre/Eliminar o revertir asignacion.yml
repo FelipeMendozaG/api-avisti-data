@@ -1,0 +1,24 @@
+info:
+  name: Eliminar o revertir asignacion
+  type: http
+  seq: 2
+
+http:
+  method: DELETE
+  url: "{{base_url}}/api/v1/admin/donation-assignments/{{assignment_id}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Revierte una asignacion dentro de una transaccion. Elimina donation_assignments, restaura equipments.life_cycle_status a AVAILABLE si conserva vida util o DEPRECIATED si ya expiro, y devuelve una solicitud DELIVERED a APPROVED.
+
+  Path parameter: `assignment_id` entero.
+
+  Respuesta 200: `data: null`.
+
+  Errores: 401 token invalido; 404 asignacion, equipo o solicitud inexistente.

@@ -1,0 +1,41 @@
+info:
+  name: Listar equipos disponibles para donacion
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{base_url}}/api/v1/admin/equipments/available-for-donation?page={{page}}&page_size={{page_size}}&product_query={{product_name}}"
+  params:
+    - name: page
+      value: "{{page}}"
+      type: query
+    - name: page_size
+      value: "{{page_size}}"
+      type: query
+    - name: product_query
+      value: "{{product_name}}"
+      type: query
+  auth:
+    type: bearer
+    token: 0f10c0234da5e6c36c353c59878c334f7d8c5f9a1334adcdc062b7d2b8dacdea
+
+runtime:
+  variables:
+  - name: product_query
+      value: Adaptador
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Lista equipos con life_cycle_status DEPRECIATED o AVAILABLE que no tienen una asignacion previa y cuya ultima evaluacion tecnica es operativa y favorable.
+
+  Parametros query opcionales: `product_query` (busqueda parcial por nombre, codigo o serie, sin distincion entre mayusculas y minusculas), `page` y `page_size`.
+
+  Respuesta 200: cada equipo incluye identificacion, serial_number, vida util, valor, estado y `technical_evaluation`.
+
+  Errores: 400 paginacion invalida; 401 token invalido.

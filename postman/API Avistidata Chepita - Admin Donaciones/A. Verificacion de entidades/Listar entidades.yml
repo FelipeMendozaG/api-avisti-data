@@ -1,0 +1,41 @@
+info:
+  name: Listar entidades
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{base_url}}/api/v1/admin/entities?verification_status={{verification_status}}&search={{search}}&page={{page}}&page_size={{page_size}}"
+  params:
+    - name: verification_status
+      value: "{{verification_status}}"
+      type: query
+    - name: search
+      value: "{{search}}"
+      type: query
+    - name: page
+      value: "{{page}}"
+      type: query
+    - name: page_size
+      value: "{{page_size}}"
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Lista entidades con paginacion.
+
+  Parametros query opcionales:
+  - `verification_status`: PENDING, VERIFIED o REJECTED.
+  - `search`: busca por RUC/tax_id o razon social/company_name.
+  - `page`: pagina, default 1.
+  - `page_size`: entre 1 y 100, default 20.
+
+  Respuesta 200: `data` es un arreglo de entidades y `pagination` contiene count, page, page_size, total_pages, next, previous, has_next y has_previous.
+
+  Errores: 400 para filtros o paginacion invalidos; 401 sin token valido.

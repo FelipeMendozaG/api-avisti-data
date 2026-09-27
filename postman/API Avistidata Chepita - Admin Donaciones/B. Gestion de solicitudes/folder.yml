@@ -1,0 +1,11 @@
+info:
+  name: B. Gestion de solicitudes
+  type: folder
+  seq: 2
+
+request:
+  auth: inherit
+
+docs:
+  content: Consulta global, detalle y dictamen administrativo de solicitudes de donacion o convenios.
+  type: text/markdown

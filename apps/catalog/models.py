@@ -36,3 +36,22 @@ class Equipment(models.Model):
 
     def __str__(self):
         return self.serial_number
+
+
+class TechnicalEvaluation(models.Model):
+    evaluation_id = models.AutoField(primary_key=True)
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, db_column="equipment_id")
+    evaluation_date = models.DateTimeField(auto_now_add=True)
+    reusability_score = models.DecimalField(max_digits=5, decimal_places=2)
+    is_operational = models.BooleanField(default=True)
+    requires_refurbishment = models.BooleanField(default=False)
+    estimated_repair_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    final_verdict = models.CharField(max_length=30)
+    remarks = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "technical_evaluations"
+        managed = False
+
+    def __str__(self):
+        return f"{self.equipment_id}:{self.final_verdict}"

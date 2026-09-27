@@ -1,0 +1,35 @@
+info:
+  name: Aprobar o rechazar solicitud
+  type: http
+  seq: 3
+
+http:
+  method: PATCH
+  url: "{{base_url}}/api/v1/admin/donation-requests/{{request_id}}/status"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "request_status": "{{request_status}}"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Cambia el dictamen de una solicitud.
+
+  Path parameter: `request_id` entero.
+
+  Body requerido: `{ "request_status": "APPROVED" }`. Solo se aceptan APPROVED o REJECTED.
+
+  Respuesta 200: solicitud con su nuevo estado.
+
+  Errores: 400 estado invalido; 401 token invalido; 404 solicitud inexistente.
